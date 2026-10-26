@@ -1,77 +1,78 @@
+import google.generativeai as genai
+import PIL.Image
 import streamlit as st
 
 st.set_page_config(
-    page_title="Calculadora Automática de Colectivos", page_icon="🚌"
+    page_title="Lector Automático de Planillas - Colectivos", page_icon="🚌"
 )
 
-st.title("🚌 Lector Inteligente de Planillas")
+st.title("🚌 Lector Automático de Planillas con IA")
 st.write(
-    "Subí la foto de la planilla del chofer. La IA detectará automáticamente"
-    " los tramos, tachones y calculará los kilómetros según el ramal."
+    "Subí la foto de la planilla del chofer. La inteligencia artificial"
+    " detectará automáticamente la línea, el ramal (Línea 20: 1, A, B; Línea"
+    " 188: A, B, E, C, G), los tachones y calculará los kilómetros."
 )
 
-# Clave de API para que la IA procese la imagen (podés guardarla o pedirla)
+# 1. Casillero para la clave de API gratuita de Google AI Studio
 api_key = st.text_input(
-    "Ingresá tu clave de API de Inteligencia Artificial (OpenAI / Gemini):",
+    "Ingresá tu clave de API de Google AI Studio (Gratis):",
     type="password",
+    help="Obtenela gratis en aistudio.google.com",
 )
 
-# 1. Selección de Línea y Ramales
-linea_seleccionada = st.selectbox(
-    "Seleccione la Línea:", ["Línea 20", "Línea 188"]
-)
-
-if linea_seleccionada == "Línea 20":
-  ramal_seleccionado = st.selectbox(
-      "Seleccione el Ramal:", ["Ramal 1", "Ramal A", "Ramal B"]
-  )
-else:
-  ramal_seleccionado = st.selectbox(
-      "Seleccione el Ramal:",
-      ["Ramal A", "Ramal B", "Ramal E", "Ramal C", "Ramal G"],
-  )
-
-# 2. Subir la foto de la planilla
+# 2. Subir la foto primero
 archivo_foto = st.file_uploader(
     "Subir foto de la planilla del chofer", type=["jpg", "jpeg", "png"]
 )
 
 if archivo_foto is not None:
+  # Mostrar la imagen cargada en pantalla
+  imagen = PIL.Image.open(archivo_foto)
   st.image(
-      archivo_foto,
-      caption=f"Planilla cargada para {linea_seleccionada} - {ramal_seleccionado}",
+      imagen,
+      caption="Planilla del chofer cargada para análisis",
       use_column_width=True,
   )
 
   if not api_key:
     st.warning(
-        "⚠️ Por favor, ingresá tu clave de API arriba para que el sistema"
-        " pueda leer la foto."
+        "⚠️ Por favor, ingresá tu clave de API arriba para que la IA pueda"
+        " leer la foto."
     )
   else:
-    if st.button("🚀 Procesar planilla con Inteligencia Artificial"):
+    if st.button("🔍 Analizar planilla automáticamente"):
       with st.spinner(
-          "Leyendo tramos, tachones y cruzando con la tabla oficial..."
+          "Leyendo tramos, tachones, detectando línea y ramales con IA..."
       ):
+        try:
+          # Configurar la API de Google con la clave ingresada
+          genai.configure(api_key=api_key)
+          # Utilizar el modelo de visión gratuito y rápido
+          model = genai.GenerativeModel("gemini-1.5-flash")
 
-        # --- AQUÍ SE CONECTARÍA EL MOTOR DE VISIÓN ARTIFICIAL ---
-        # El sistema envía la imagen, la línea y el ramal seleccionado a la IA,
-        # la cual lee los datos escritos y aplica las distancias oficiales.
+          # Instrucción experta para que la IA entienda las líneas, ramales y tachones
+          prompt = (
+              "Analiza esta planilla de colectivos de Buenos Aires. "
+              "Detecta automáticamente si pertenece a la Línea 20 (Ramales: 1, A,"
+              " B) o a la Línea 188 (Ramales: A, B, E, C, G). "
+              "Interpreta los tramos, fragmentos y tachones escritos a mano en"
+              " el papel. "
+              "Calcula los kilómetros totales, los kilómetros muertos y los"
+              " kilómetros netos basados en las distancias oficiales de ese"
+              " ramal. "
+              "Devuelve la respuesta estructurada de forma clara indicando:"
+              " Línea detectada, Ramal detectado, Kilómetros Totales,"
+              " Kilómetros Muertos y Kilómetros Netos."
+          )
 
-        # Ejemplo de respuesta procesada por la IA basada en tu planilla real:
-        km_totales = 168.50
-        km_muertos = 10.20
-        km_netos = km_totales - km_muertos
+          response = model.generate_content([prompt, imagen])
 
-        st.success("¡Lectura de planilla finalizada con éxito!")
+          st.success("¡Análisis completado con éxito!")
+          st.markdown("### 📊 Resultado del Análisis:")
+          st.write(response.text)
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Kilómetros Totales", f"{km_totales} km")
-        col2.metric("Kilómetros Muertos", f"{km_muertos} km")
-        col3.metric("Kilómetros Netos", f"{km_netos} km")
+        except Exception as e:
+          st.error(
+              f"Ocurrió un error al procesar la imagen con la API: {e}"
+          )
 
-        st.info(
-            f"Resultados extraídos automáticamente para la **{linea_seleccionada}"
-            f" ({ramal_seleccionado})** considerando los tachones y tramos"
-            " marcados."
-        )
